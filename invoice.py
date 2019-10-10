@@ -5,10 +5,16 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import *
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.remote.webelement import WebElement
+from drop_files import drop_files
+WebElement.drop_files = drop_files
 
 import time
 import pickle
 import odoorpc
+import tempfile
+import base64
+from pathlib import Path
 from datetime import datetime
 
 
@@ -150,8 +156,10 @@ class WorkdayInterface:
         field.send_keys(contents)
         time.sleep(1)
         if ret:
-            field.send_keys(Keys.RETURN)        
+            field.send_keys(Keys.RETURN)  
 
+
+        
 class OdooInterface:
     def __init__(self,username,password):
         print("Connecting to ODOO Database..")
@@ -188,15 +196,27 @@ class OdooInterface:
         return matches
         
     def getInvoiceAttatchmentfromInvoiceMessages(self,invoice):
-        print("\tDownloading attatchment from invoice..")
-        for m in invoice.message_ids: 
+        inv = invoice['odoo-invoice']
+        print("\tFinding attatchments in invoice..")
+        for m in inv.message_ids: 
             atts = m.attachment_ids
             if len(atts)!=0:
                 print("\t\t file '%s' found!"%(atts.datas_fname))
                 return {'filename':atts.datas_fname,'data':atts.datas}
         print("\t\tNo Attatchment Found")
         return None
-                
+        
+    def downloadAttatchedInvoice(self,invoice):
+        inv_file = self.getInvoiceAttatchmentfromInvoiceMessages(invoice)
+        if inv_file==None:
+            return ""
+        tempdir = Path(tempfile.gettempdir())
+        save_path = tempdir / inv_file['filename']
+        print("\tSaving file '%s' to '%s'.."%(inv_file['filename'],tempdir))
+        fh = open(save_path, "wb")
+        fh.write(base64.b64decode(inv_file['data']))
+        fh.close()
+        return save_path
 
 logins = pickle.load(open('logins.pickle','rb'))
 
@@ -207,8 +227,9 @@ tlist = wi.getListOfPendingExpenses()
 corr  = oi.correlateRecordsWithOdooInvoices(tlist)
 
 #for ex in corr:
-wi.createExpenseReportWithRecord(corr[-1])   
-    
+#wi.createExpenseReportWithRecord(corr[-1])   
+for ex in corr:
+    print(oi.downloadAttatchedInvoice(ex))
     
 #wi.createExpenseReportWithRecord(tlist[-1])
 
