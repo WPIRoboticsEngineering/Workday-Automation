@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import *
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
@@ -129,12 +129,23 @@ class WorkdayInterface:
 
     def lookupExpenseReportField(self,fieldname):
         d = self.driver
-        lab = d.find_element_by_xpath(".//label[contains(text(),'%s')]"%(fieldname)) 
-        field_attr = lab.get_attribute('id')
-        return d.find_element_by_xpath("//input[@aria-labelledby='%s']"%(field_attr)) 
-        
+        lab = d.find_elements_by_xpath(".//label[contains(text(),'%s')]"%(fieldname))
+        for l in lab: 
+            try:
+                field_attr = l.get_attribute('id')
+                try:
+                    return d.find_element_by_xpath("//input[@aria-labelledby='%s']"%(field_attr)) 
+                except NoSuchElementException:
+                    uid = field_attr.split("-")[0]
+                    uid2 = field_attr.split("-")[2]
+                    return d.find_element_by_id("%s--%s-input"%(uid,uid2))  
+            except NoSuchElementException:
+                pass
+        return None
     def fillExpenseReportField(self,field_name,contents,ret=True):
         field = self.lookupExpenseReportField(field_name)
+        if field==None:
+            return None
         field.clear()
         field.send_keys(contents)
         time.sleep(1)
