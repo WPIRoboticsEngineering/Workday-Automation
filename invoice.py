@@ -25,6 +25,16 @@ class WorkdayInterface:
         self.loginToWorkday(user,password)
         pass
     
+    def waitForAndFindM(self,xpath):
+        d = self.driver
+        WebDriverWait(d,30).until(EC.presence_of_element_located((By.XPATH,xpath)))
+        return d.find_elements_by_xpath(xpath)
+        
+    def waitForAndFindS(self,xpath):
+        d = self.driver
+        WebDriverWait(d,30).until(EC.presence_of_element_located((By.XPATH,xpath)))
+        return d.find_element_by_xpath(xpath)
+    
     def findWorkdayIcon(self):
         d = self.driver
         dvs = d.find_elements_by_tag_name('div') 
@@ -40,11 +50,12 @@ class WorkdayInterface:
         #wait for login form to load
         WebDriverWait(d,30).until(EC.presence_of_element_located((By.CLASS_NAME,'btn-primary')))
         self.fill_text_field('i0116',user,True)
-        time.sleep(2)
+        time.sleep(1)
         self.fill_text_field('i0118',password,True)
-        time.sleep(10)
+        time.sleep(1)
         print("\tWaiting for Sign-in Verification by phone..")
         WebDriverWait(d,130).until(EC.presence_of_element_located((By.CLASS_NAME,'workdayHome-ae')))
+        
                 
         
         return True;
@@ -52,10 +63,10 @@ class WorkdayInterface:
         print("\tNavigating to expense report page..")
         d=self.driver
         d.get('https://wd5.myworkday.com/wpi/d/home.htmld')
-        time.sleep(5)
+        time.sleep(1)
+        WebDriverWait(d,130).until(EC.presence_of_element_located((By.XPATH,".//div[@data-automation-id='landingPageWorkletSelectionOption'][@title='Expenses']")))
         d.find_elements_by_xpath(".//div[@data-automation-id='landingPageWorkletSelectionOption'][@title='Expenses']")[0].click()
-        #WebDriverWait(d,130).until(EC.presence_of_element_located((By.CLASS_NAME,'WC03')))
-        time.sleep(10)
+        time.sleep(1)
         d.find_element_by_link_text("Create Expense Report").click() 
         #WebDriverWait(d,130).until(EC.presence_of_element_located((By.CLASS_NAME,'WBNG')))
     
@@ -63,8 +74,8 @@ class WorkdayInterface:
         print("Getting list of posted transactions..")
         self.navgateToCreateExpenseReport()
         d=self.driver
-        time.sleep(10)
-        table=d.find_element_by_xpath(".//table[@class='mainTable\']")
+        time.sleep(1)
+        table=self.waitForAndFindS(".//table[@class='mainTable\']")
         rows = table.find_elements(By.TAG_NAME, "tr")
         transactions = []
         for r in rows:
@@ -85,14 +96,15 @@ class WorkdayInterface:
     
     def createExpenseReportWithRecord(self,recordmap):
         record = recordmap['workday-record']
-        print("Creating an expense report for record '%s - %s$'.."%(record['merchant'],record['amount']))
+        print("\tCreating an expense report in Workday for record '%s - %s$'.."%(record['merchant'],record['amount']))
         d=self.driver
+        self.navgateToCreateExpenseReport()
         #get table
-        time.sleep(3)
-        se = d.find_element_by_xpath(".//div[@data-automation-id='MainContainer']")
+        time.sleep(1)
+        se = self.waitForAndFindS(".//div[@data-automation-id='MainContainer']")
         d.execute_script("return arguments[0].scrollIntoView();", se)
         
-        table=d.find_element_by_xpath(".//table[@class='mainTable\']")
+        table=self.waitForAndFindS(".//table[@class='mainTable\']")
         rows = table.find_elements(By.TAG_NAME, "tr")
         #iterate through rows untill we match
         #match with date,merchant,price
@@ -111,6 +123,7 @@ class WorkdayInterface:
                             d.execute_script("return arguments[0].scrollIntoView();", bt)
                             print("\tMatch found! Creating a new report in workday.")
                             bt.click()
+                            WebDriverWait(d,30).until(EC.presence_of_element_located((By.XPATH,".//label[contains(text(),'Date')]")))
                             return True
         print("\tCould not find a match in unexpensed items!")
         return False
@@ -135,11 +148,12 @@ class WorkdayInterface:
 
     def lookupExpenseReportField(self,fieldname):
         d = self.driver
-        lab = d.find_elements_by_xpath(".//label[contains(text(),'%s')]"%(fieldname))
+        lab = self.waitForAndFindM(".//label[contains(text(),'%s')]"%(fieldname))
         for l in lab: 
             try:
                 field_attr = l.get_attribute('id')
                 try:
+                    time.sleep(3)
                     return d.find_element_by_xpath("//input[@aria-labelledby='%s']"%(field_attr)) 
                 except NoSuchElementException:
                     uid = field_attr.split("-")[0]
@@ -149,6 +163,7 @@ class WorkdayInterface:
                 pass
         return None
     def fillExpenseReportField(self,field_name,contents,ret=True):
+        print("\t\tFilling Field '%s' with '%s'"%(field_name,contents))
         field = self.lookupExpenseReportField(field_name)
         if field==None:
             return None
@@ -158,8 +173,88 @@ class WorkdayInterface:
         if ret:
             field.send_keys(Keys.RETURN)  
 
-
+    def navigateToExpenseHeader(self):
+        print("\tNavigating to Invoice Header..")
+        d = self.driver
+        htab = self.waitForAndFindS(".//div[(@data-automation-id='tabLabel') and (text()='Header')]")
+        time.sleep(1)
+        htab.click()
+        time.sleep(4)
+        editb = self.waitForAndFindS(".//span[(@title='Edit')]")
+        editb.click()
+        WebDriverWait(d,30).until(EC.presence_of_element_located((By.XPATH,".//span[(@title='Save')]")))
+        return
         
+    def saveExpenseReportHeader(self):
+        print("\tSaving Expense Report Header..")
+        d = self.driver
+        savebtn = self.waitForAndFindS(".//span[(@title='Save')]")
+        savebtn.click()
+        time.sleep(1)
+        return
+    
+    def clickSubmitReport(self):
+        print("\tSubmitting Expense Report..")
+        d = self.driver
+        savebtn = self.waitForAndFindS(".//span[(@title='Submit')]")
+        savebtn.click()
+        time.sleep(1)
+        return
+    def attatchFileToReport(self,path):
+        print("\tDragging and Dropping Vendor Invoice..")
+        d = self.driver
+        drop = self.waitForAndFindM(".//div[@data-automation-id='dragDropTarget']")[-1]
+        drop.drop_files(str(path))
+        return
+        
+    def submitExpenseReport(self,report):
+        try:
+            print("Submitting expense report for '%s'"%(ex['odoo-po'].name))
+            a_file = oi.downloadAttatchedInvoice(ex)
+            if a_file=="":
+                print("\tMissing attatchment on %s"%(ex['odoo-po'].name))
+                return
+            self.createExpenseReportWithRecord(ex)
+            time.sleep(3)
+            self.fillExpenseReportField('Expense Item','lab supplies')
+            time.sleep(1)
+            self.fillExpenseReportField('Business Reason','lab supplies')
+            time.sleep(1)
+            self.fillExpenseReportField('Memo', ex['odoo-po'].name)
+            time.sleep(1)
+            self.attatchFileToReport(a_file)
+            time.sleep(5)
+            self.navigateToExpenseHeader()
+            time.sleep(3)
+            self.fillExpenseReportField('Memo','Lab Supplies')
+            time.sleep(1)
+            self.fillExpenseReportField('Business Purpose','Supplies')
+            time.sleep(1)
+            self.saveExpenseReportHeader()
+            time.sleep(5)
+            self.clickSubmitReport()
+            return
+        except:
+            self.voidCurrentDraftExpenseReport()
+            raise
+        
+    def voidCurrentDraftExpenseReport(self):
+        print("\tVoiding Current Expense Report..")
+        d = self.driver
+        act = self.waitForAndFindS(".//button[(@data-automation-id='relatedActionsButton')]")
+        ActionChains(d).move_to_element(act).click().perform()
+        time.sleep(3)
+        rai = self.waitForAndFindS(".//div[(@data-automation-id='relatedActionsItemLabel') and (@data-automation-label='Expense Report')]")
+        ActionChains(d).move_to_element(rai).perform()
+        time.sleep(3)
+        raii = self.waitForAndFindS(".//div[(@data-automation-id='relatedActionsItemLabel') and (@data-automation-label='Cancel')]")
+        ActionChains(d).move_to_element(raii).click().perform()
+        time.sleep(3)
+        okbtn = self.waitForAndFindS(".//span[(@title='OK')]")
+        okbtn.click()
+        time.sleep(3)
+        return
+ 
 class OdooInterface:
     def __init__(self,username,password):
         print("Connecting to ODOO Database..")
@@ -176,23 +271,34 @@ class OdooInterface:
         #TODO: we should only serch for invoices newer than the oldest record.
         invoice_ids_list = ai.search([]) 
         invoices = ai.browse(invoice_ids_list)
+        # Cull invoices by discarding ones older then oldest posted transaction
+        date = datetime.now().date()
+        for t in tlist:
+            rdate = datetime.strptime(t['date'],'%m/%d/%Y').date()
+            if rdate<date:
+                date=rdate
+        
+        
+        
         matches = []
         print("\tChecking %s transactions against %s invoices"%(len(records),len(invoices)))
         for i in invoices:
+
             if i.origin[0:2]=="PO":
                 i_po = po.browse(int(i.origin[2:]))
                 idate= i_po.date_order.date()
-                i_vendor = i_po.partner_id.name
-                #print(idate)
-                for r in tlist:
-                    rdate = datetime.strptime(r['date'],'%m/%d/%Y').date()
-                    #print("\t%s"%(rdate))
-                    if abs((idate - rdate).days)<15:
-                        iprice = "%.2f" % (i.amount_total)
-                        rprice = r['amount']
-                        if iprice==rprice:
-                            print("\tMatched '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
-                            matches.append({'odoo-po':i_po,'odoo-invoice':i,'workday-record':r})
+                if ((idate-date).days)>-10:
+                    i_vendor = i_po.partner_id.name
+                    #print(idate)
+                    for r in tlist:
+                        rdate = datetime.strptime(r['date'],'%m/%d/%Y').date()
+                        #print("\t%s"%(rdate))
+                        if abs((idate - rdate).days)<15:
+                            iprice = "%.2f" % (i.amount_total)
+                            rprice = r['amount']
+                            if iprice==rprice:
+                                print("\tMatched '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
+                                matches.append({'odoo-po':i_po,'odoo-invoice':i,'workday-record':r})
         return matches
         
     def getInvoiceAttatchmentfromInvoiceMessages(self,invoice):
@@ -226,10 +332,13 @@ oi = OdooInterface(logins['odoo']['username'],logins['odoo']['password'])
 tlist = wi.getListOfPendingExpenses()
 corr  = oi.correlateRecordsWithOdooInvoices(tlist)
 
-#for ex in corr:
-#wi.createExpenseReportWithRecord(corr[-1])   
-for ex in corr:
-    print(oi.downloadAttatchedInvoice(ex))
+
+ex = corr[0]
+
+
+wi.submitExpenseReport(ex)
+#wi.voidCurrentDraftExpenseReport()
+    
     
 #wi.createExpenseReportWithRecord(tlist[-1])
 
