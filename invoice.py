@@ -242,6 +242,7 @@ class WorkdayInterface:
         print("\tVoiding Current Expense Report..")
         d = self.driver
         act = self.waitForAndFindS(".//button[(@data-automation-id='relatedActionsButton')]")
+        d.execute_script("return arguments[0].scrollIntoView();", act)
         ActionChains(d).move_to_element(act).click().perform()
         time.sleep(3)
         rai = self.waitForAndFindS(".//div[(@data-automation-id='relatedActionsItemLabel') and (@data-automation-label='Expense Report')]")
@@ -333,10 +334,11 @@ tlist = wi.getListOfPendingExpenses()
 corr  = oi.correlateRecordsWithOdooInvoices(tlist)
 
 
-ex = corr[0]
+#ex = corr[0]
 
-
-wi.submitExpenseReport(ex)
+for ex in corr:
+    time.sleep(3)
+    wi.submitExpenseReport(ex)
 #wi.voidCurrentDraftExpenseReport()
     
     
