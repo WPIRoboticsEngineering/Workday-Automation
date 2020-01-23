@@ -117,10 +117,15 @@ class WorkdayInterface:
                             # We have a match.
                             #Scroll row into view so we can click it
                             d.execute_script("return arguments[0].scrollIntoView();", r)
-                            time.sleep(0.5)
+                            time.sleep(3)
                             cells[1].find_element_by_xpath(".//div[@data-automation-id='checkboxPanel']").click()
                             bt = r.find_element_by_xpath("//button[@data-automation-id='wd-CommandButton_uic_okButton']")
                             d.execute_script("return arguments[0].scrollIntoView();", bt)
+                            #we have to pre-fill these fields here now due to update
+                            self.fillExpenseReportField('Business Purpose','Supplies')
+                            time.sleep(3)
+                            self.fillExpenseReportField('Memo','Lab Supplies')
+                            time.sleep(3)
                             print("\tMatch found! Creating a new report in workday.")
                             bt.click()
                             WebDriverWait(d,30).until(EC.presence_of_element_located((By.XPATH,".//label[contains(text(),'Date')]")))
@@ -215,7 +220,7 @@ class WorkdayInterface:
                 print("\tMissing attatchment on %s"%(ex['odoo-po'].name))
                 return
             self.createExpenseReportWithRecord(ex)
-            time.sleep(3)
+            time.sleep(1)
             self.fillExpenseReportField('Expense Item','lab supplies')
             time.sleep(1)
             self.fillExpenseReportField('Business Reason','lab supplies')
@@ -225,16 +230,15 @@ class WorkdayInterface:
             self.attatchFileToReport(a_file)
             time.sleep(5)
             self.navigateToExpenseHeader()
-            time.sleep(3)
-            self.fillExpenseReportField('Memo','Lab Supplies')
-            time.sleep(1)
-            self.fillExpenseReportField('Business Purpose','Supplies')
+
+
             time.sleep(1)
             self.saveExpenseReportHeader()
             time.sleep(5)
             self.clickSubmitReport()
             return
-        except:
+        except Exception as e:
+            print(e)
             self.voidCurrentDraftExpenseReport()
             raise
         
@@ -264,7 +268,7 @@ class OdooInterface:
         self.ai = self.odoo.env['account.invoice']
         self.po = self.odoo.env['purchase.order']  
         
-    def correlateRecordsWithOdooInvoices(self,records):
+    def correlateRecordsWithOdooInvoices(self,records,verbose=True):
         print("Correlating Pending Expenses with ODOO Invoices..")
         ai = self.ai
         po = self.po
@@ -279,27 +283,43 @@ class OdooInterface:
             if rdate<date:
                 date=rdate
         
+        if verbose:
+            print("Oldest ransaction date is '%s' "%(date))
         
         
         matches = []
         print("\tChecking %s transactions against %s invoices"%(len(records),len(invoices)))
         for i in invoices:
-
+            if verbose:
+                print("Evaluating record %s"%(i.origin))
             if i.origin[0:2]=="PO":
+                if verbose:
+                    print("Is a PO")
                 i_po = po.browse(int(i.origin[2:]))
                 idate= i_po.date_order.date()
-                if ((idate-date).days)>-10:
+                if True: #if ((idate-date).days)>-10:
                     i_vendor = i_po.partner_id.name
                     #print(idate)
                     for r in tlist:
+                        if verbose:
+                            print("\tComparing '%s' with '%s'"%(r['charge_desc'],i.origin))
                         rdate = datetime.strptime(r['date'],'%m/%d/%Y').date()
-                        #print("\t%s"%(rdate))
-                        if abs((idate - rdate).days)<15:
+                        #print("\t%s  %s\t%s\t%s\t%s"%(rdate,abs((idate - rdate).days),r['merchant'],r['amount'],i.origin))
+                        if abs((idate - rdate).days)<120:
                             iprice = "%.2f" % (i.amount_total)
-                            rprice = r['amount']
+                            rprice = r['amount'].replace(',','',)
+                            #print("\t\tComparing '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
                             if iprice==rprice:
                                 print("\tMatched '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
                                 matches.append({'odoo-po':i_po,'odoo-invoice':i,'workday-record':r})
+                            elif verbose:
+                                print("\t\tRejected: Price mismatch between PO and Transaction")
+                        elif verbose:
+                            print("\t\tRejected: Transaction and PO date out of bounds")
+                elif verbose:
+                    print("\tRejected: Outside of date bounds")
+            elif verbose:
+                print("\tRejected: Not a PO")
         return matches
         
     def getInvoiceAttatchmentfromInvoiceMessages(self,invoice):
@@ -325,7 +345,7 @@ class OdooInterface:
         fh.close()
         return save_path
 
-logins = pickle.load(open('logins.pickle','rb'))
+logins = pickle.load(open('../logins.pickle','rb'))
 
 wi = WorkdayInterface(logins['wpi']['username'],logins['wpi']['password'])
 oi = OdooInterface(logins['odoo']['username'],logins['odoo']['password'])
