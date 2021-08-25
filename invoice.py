@@ -295,29 +295,32 @@ class OdooInterface:
             if i.origin[0:2]=="PO":
                 if verbose:
                     print("Is a PO")
-                i_po = po.browse(int(i.origin[2:]))
-                idate= i_po.date_order.date()
-                if True: #if ((idate-date).days)>-10:
-                    i_vendor = i_po.partner_id.name
-                    #print(idate)
-                    for r in tlist:
-                        if verbose:
-                            print("\tComparing '%s' with '%s'"%(r['charge_desc'],i.origin))
-                        rdate = datetime.strptime(r['date'],'%m/%d/%Y').date()
-                        #print("\t%s  %s\t%s\t%s\t%s"%(rdate,abs((idate - rdate).days),r['merchant'],r['amount'],i.origin))
-                        if abs((idate - rdate).days)<120:
-                            iprice = "%.2f" % (i.amount_total)
-                            rprice = r['amount'].replace(',','',)
-                            #print("\t\tComparing '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
-                            if iprice==rprice:
-                                print("\tMatched '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
-                                matches.append({'odoo-po':i_po,'odoo-invoice':i,'workday-record':r})
+                if int(i.origin[2:])>900:
+                    i_po = po.browse(int(i.origin[2:]))
+                    idate= i_po.date_order.date()
+                    if True: #if ((idate-date).days)>-10:
+                        i_vendor = i_po.partner_id.name
+                        #print(idate)
+                        for r in tlist:
+                            if verbose:
+                                print("\tComparing '%s' with '%s'"%(r['charge_desc'],i.origin))
+                            rdate = datetime.strptime(r['date'],'%m/%d/%Y').date()
+                            #print("\t%s  %s\t%s\t%s\t%s"%(rdate,abs((idate - rdate).days),r['merchant'],r['amount'],i.origin))
+                            if abs((idate - rdate).days)<120:
+                                iprice = "%.2f" % (i.amount_total)
+                                rprice = r['amount'].replace(',','',)
+                                #print("\t\tComparing '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
+                                if iprice==rprice:
+                                    print("\tMatched '%s - %s$' with %s"%(r['merchant'],r['amount'],i.origin))
+                                    matches.append({'odoo-po':i_po,'odoo-invoice':i,'workday-record':r})
+                                elif verbose:
+                                    print("\t\tRejected: Price mismatch between PO and Transaction")
                             elif verbose:
-                                print("\t\tRejected: Price mismatch between PO and Transaction")
-                        elif verbose:
-                            print("\t\tRejected: Transaction and PO date out of bounds")
+                                print("\t\tRejected: Transaction and PO date out of bounds")
+                    elif verbose:
+                        print("\tRejected: Outside of date bounds")
                 elif verbose:
-                    print("\tRejected: Outside of date bounds")
+                        print("\tRejected: Too Old PO number")
             elif verbose:
                 print("\tRejected: Not a PO")
         return matches
