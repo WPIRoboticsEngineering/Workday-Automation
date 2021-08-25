@@ -48,7 +48,7 @@ class WorkdayInterface:
         d = self.driver
         d.get("https://wd5.myworkday.com/wday/authgwy/wpi/login-saml2.htmld")
         #wait for login form to load
-        WebDriverWait(d,30).until(EC.presence_of_element_located((By.CLASS_NAME,'btn-primary')))
+        WebDriverWait(d,30).until(EC.presence_of_element_located((By.CLASS_NAME,'button_primary')))
         self.fill_text_field('i0116',user,True)
         time.sleep(1)
         self.fill_text_field('i0118',password,True)
