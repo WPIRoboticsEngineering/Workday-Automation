@@ -209,6 +209,7 @@ class WorkdayInterface:
         print("\tDragging and Dropping Vendor Invoice..")
         d = self.driver
         drop = self.waitForAndFindM(".//div[@data-automation-id='dragDropTarget']")[-1]
+        print(str(path))
         drop.drop_files(str(path))
         return
         
@@ -320,7 +321,7 @@ class OdooInterface:
                     elif verbose:
                         print("\tRejected: Outside of date bounds")
                 elif verbose:
-                        print("\tRejected: Too Old PO number")
+                        print("\tRejected: Too Old PO")
             elif verbose:
                 print("\tRejected: Not a PO")
         return matches
